@@ -1,9 +1,11 @@
 import SwiftUI
+import AppKit
 
 // MARK: - Root View
 
 struct MenuBarView: View {
     @EnvironmentObject private var stats: StatsModel
+    @State private var weeklyExpanded = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -13,7 +15,7 @@ struct MenuBarView: View {
                 usageSection(usage)
             }
             divider
-            statsSection(title: "Today",       s: stats.todayStats)
+            statsSection(title: "Today", s: stats.todayStats)
             divider
             statsSection(title: "Last 7 Days", s: stats.weekStats)
             if stats.last7Days.contains(where: { $0.stats.messages > 0 }) {
@@ -28,6 +30,46 @@ struct MenuBarView: View {
         .onAppear { stats.load() }
     }
 
+    // MARK: - Header
+
+    private var header: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "brain.head.profile")
+                .foregroundColor(.purple)
+                .font(.title3)
+            Text("Claude Usage")
+                .font(.headline)
+            Spacer()
+            if stats.isLoading {
+                ProgressView().scaleEffect(0.6)
+            }
+            settingsMenu
+        }
+    }
+
+    private var settingsMenu: some View {
+        Menu {
+            Button(action: copyDebugInfo) {
+                Label("Copy Debug Info", systemImage: "doc.on.clipboard")
+            }
+            Divider()
+            Button(action: { stats.load() }) {
+                Label("Refresh", systemImage: "arrow.clockwise")
+            }
+            .disabled(stats.isLoading)
+            Divider()
+            Button(action: { NSApplication.shared.terminate(nil) }) {
+                Label("Quit", systemImage: "power")
+            }
+        } label: {
+            Image(systemName: "gearshape")
+                .font(.system(size: 13))
+                .foregroundColor(.secondary)
+        }
+        .menuStyle(.borderlessButton)
+        .frame(width: 20)
+    }
+
     // MARK: - Usage Limits
 
     private func usageSection(_ u: UsageData) -> some View {
@@ -37,23 +79,40 @@ struct MenuBarView: View {
             if u.sessionPct > 0 || u.sessionResetsAt != nil {
                 limitRow(
                     label: "Current session",
-                    pct:   u.sessionPct,
+                    pct: u.sessionPct,
                     color: color(for: u.sessionPct),
-                    reset: u.sessionResetsAt
+                    reset: u.sessionResetsAt,
+                    expandable: false
                 )
             }
             limitRow(
                 label: "Weekly",
-                pct:   u.weeklyPct,
+                pct: u.weeklyPct,
                 color: color(for: u.weeklyPct),
-                reset: u.weeklyResetsAt
+                reset: u.weeklyResetsAt,
+                expandable: true
             )
         }
     }
 
-    private func limitRow(label: String, pct: Double, color: Color, reset: Date?) -> some View {
+    private func limitRow(
+        label: String,
+        pct: Double,
+        color: Color,
+        reset: Date?,
+        expandable: Bool
+    ) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack {
+                if expandable {
+                    Button(action: { withAnimation(.easeInOut(duration: 0.2)) { weeklyExpanded.toggle() } }) {
+                        Image(systemName: weeklyExpanded ? "chevron.down" : "chevron.right")
+                            .font(.system(size: 8, weight: .bold))
+                            .foregroundColor(.secondary)
+                            .frame(width: 12)
+                    }
+                    .buttonStyle(.plain)
+                }
                 Text(label)
                     .font(.system(size: 12, weight: .medium))
                 Spacer()
@@ -61,18 +120,8 @@ struct MenuBarView: View {
                     .font(.system(size: 12, weight: .semibold, design: .monospaced))
                     .foregroundColor(color)
             }
-            // Progress bar
-            GeometryReader { geo in
-                ZStack(alignment: .leading) {
-                    RoundedRectangle(cornerRadius: 3)
-                        .fill(Color.secondary.opacity(0.15))
-                        .frame(height: 6)
-                    RoundedRectangle(cornerRadius: 3)
-                        .fill(color)
-                        .frame(width: max(4, geo.size.width * CGFloat(pct / 100)), height: 6)
-                }
-            }
-            .frame(height: 6)
+
+            progressBar(pct: pct, color: color)
 
             if let reset {
                 VStack(alignment: .leading, spacing: 1) {
@@ -84,15 +133,118 @@ struct MenuBarView: View {
                         .foregroundColor(.secondary.opacity(0.7))
                 }
             }
+
+            if expandable && weeklyExpanded {
+                modelBreakdown
+                    .padding(.top, 4)
+                    .transition(.opacity.combined(with: .move(edge: .top)))
+            }
         }
     }
 
+    private func progressBar(pct: Double, color: Color) -> some View {
+        GeometryReader { geo in
+            ZStack(alignment: .leading) {
+                RoundedRectangle(cornerRadius: 3)
+                    .fill(Color.secondary.opacity(0.15))
+                    .frame(height: 6)
+                RoundedRectangle(cornerRadius: 3)
+                    .fill(color)
+                    .frame(width: max(4, geo.size.width * CGFloat(pct / 100)), height: 6)
+            }
+        }
+        .frame(height: 6)
+    }
+
+    // MARK: - Model Breakdown (Sonnet / Opus under Weekly)
+
+    private var modelBreakdown: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            modelRow(
+                name: "Sonnet",
+                messages: stats.weekStats.sonnetMessages,
+                tokens: stats.weekStats.sonnetOutputTokens,
+                color: .blue
+            )
+            modelRow(
+                name: "Opus",
+                messages: stats.weekStats.opusMessages,
+                tokens: stats.weekStats.opusOutputTokens,
+                color: .purple
+            )
+        }
+        .padding(.leading, 12)
+    }
+
+    private func modelRow(name: String, messages: Int, tokens: Int, color: Color) -> some View {
+        HStack(spacing: 6) {
+            Circle()
+                .fill(color.opacity(0.7))
+                .frame(width: 6, height: 6)
+            Text(name)
+                .font(.system(size: 11, weight: .medium))
+                .foregroundColor(.primary.opacity(0.8))
+            Spacer()
+            Text("\(fmt(messages)) msgs")
+                .font(.system(size: 10, design: .monospaced))
+                .foregroundColor(.secondary)
+            Text("\(fmt(tokens)) tok")
+                .font(.system(size: 10, design: .monospaced))
+                .foregroundColor(.secondary)
+        }
+    }
+
+    // MARK: - Stats Sections
+
+    private func statsSection(title: String, s: DayStats) -> some View {
+        VStack(alignment: .leading, spacing: 5) {
+            sectionLabel(title)
+            statRow("Responses", value: fmt(s.messages), icon: "message")
+            statRow("Tool calls", value: fmt(s.toolCalls), icon: "wrench.and.screwdriver")
+            statRow("Sessions", value: "\(s.sessionCount)", icon: "terminal")
+            statRow("Output tokens", value: fmt(s.outputTokens), icon: "arrow.up.circle")
+        }
+    }
+
+    private var chartSection: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            sectionLabel("Responses / Day")
+            ActivityBarChart(days: stats.last7Days)
+                .frame(height: 72)
+        }
+    }
+
+    // MARK: - Footer
+
+    private var footer: some View {
+        Group {
+            if let t = stats.lastRefreshed {
+                Text("Updated \(refreshedLabel(t))")
+                    .font(.system(size: 10))
+                    .foregroundColor(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        }
+    }
+
+    // MARK: - Actions
+
+    private func copyDebugInfo() {
+        let info = stats.debugInfo
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(info, forType: .string)
+    }
+
+    // MARK: - Helpers
+
+    private var divider: some View { Divider().padding(.vertical, 8) }
+
     private func color(for pct: Double) -> Color {
         switch pct {
-        case ..<50:  return .green
-        case ..<75:  return .yellow
-        case ..<90:  return .orange
-        default:     return .red
+        case ..<50: return .green
+        case ..<75: return .yellow
+        case ..<90: return .orange
+        default: return .red
         }
     }
 
@@ -114,71 +266,12 @@ struct MenuBarView: View {
         return "in \(m)m"
     }
 
-    // MARK: - Sections
-
-    private var header: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "brain.head.profile")
-                .foregroundColor(.purple)
-                .font(.title3)
-            Text("Claude Code")
-                .font(.headline)
-            Spacer()
-            if stats.isLoading {
-                ProgressView().scaleEffect(0.6)
-            }
-        }
-    }
-
-    private func statsSection(title: String, s: DayStats) -> some View {
-        VStack(alignment: .leading, spacing: 5) {
-            sectionLabel(title)
-            statRow("Responses",     value: fmt(s.messages),     icon: "message")
-            statRow("Tool calls",    value: fmt(s.toolCalls),    icon: "wrench.and.screwdriver")
-            statRow("Sessions",      value: "\(s.sessionCount)", icon: "terminal")
-            statRow("Output tokens", value: fmt(s.outputTokens), icon: "arrow.up.circle")
-        }
-    }
-
-    private var chartSection: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            sectionLabel("Responses / Day")
-            ActivityBarChart(days: stats.last7Days)
-                .frame(height: 72)
-        }
-    }
-
-    private var footer: some View {
-        VStack(spacing: 4) {
-            HStack {
-                Button("Refresh") { stats.load() }
-                    .buttonStyle(.borderless)
-                    .foregroundColor(.accentColor)
-                    .disabled(stats.isLoading)
-                Spacer()
-                Button("Quit") { NSApplication.shared.terminate(nil) }
-                    .buttonStyle(.borderless)
-                    .foregroundColor(.secondary)
-            }
-            if let t = stats.lastRefreshed {
-                Text("Updated \(refreshedLabel(t))")
-                    .font(.system(size: 10))
-                    .foregroundColor(.secondary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            }
-        }
-    }
-
     private func refreshedLabel(_ date: Date) -> String {
         let s = Int(-date.timeIntervalSinceNow)
-        if s < 60  { return "just now" }
+        if s < 60 { return "just now" }
         if s < 3600 { return "\(s / 60)m ago" }
         return "\(s / 3600)h ago"
     }
-
-    // MARK: - Helpers
-
-    private var divider: some View { Divider().padding(.vertical, 8) }
 
     private func sectionLabel(_ text: String) -> some View {
         Text(text)
@@ -204,14 +297,9 @@ struct MenuBarView: View {
     }
 
     private func fmt(_ n: Int) -> String {
-        NumberFormatter().also { $0.numberStyle = .decimal }
-            .string(from: NSNumber(value: n)) ?? "\(n)"
-    }
-}
-
-private extension NumberFormatter {
-    func also(_ configure: (NumberFormatter) -> Void) -> NumberFormatter {
-        configure(self); return self
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .decimal
+        return formatter.string(from: NSNumber(value: n)) ?? "\(n)"
     }
 }
 
@@ -219,7 +307,8 @@ private extension NumberFormatter {
 
 struct ActivityBarChart: View {
     let days: [(date: String, stats: DayStats)]
-    private var maxCount: Int { max(1, days.map { $0.stats.messages }.max() ?? 1) }
+
+    private var maxCount: Int { max(1, days.map(\.stats.messages).max() ?? 1) }
 
     var body: some View {
         HStack(alignment: .bottom, spacing: 3) {
@@ -235,13 +324,17 @@ struct ActivityBarChart: View {
     }
 
     private func isToday(_ s: String) -> Bool {
-        let f = DateFormatter(); f.dateFormat = "yyyy-MM-dd"
+        let f = DateFormatter()
+        f.dateFormat = "yyyy-MM-dd"
         return s == f.string(from: Date())
     }
 }
 
 struct BarColumn: View {
-    let date: String; let count: Int; let maxCount: Int; let isToday: Bool
+    let date: String
+    let count: Int
+    let maxCount: Int
+    let isToday: Bool
 
     var body: some View {
         GeometryReader { geo in
@@ -263,7 +356,8 @@ struct BarColumn: View {
     }
 
     private var dayLabel: String {
-        let f = DateFormatter(); f.dateFormat = "yyyy-MM-dd"
+        let f = DateFormatter()
+        f.dateFormat = "yyyy-MM-dd"
         guard let d = f.date(from: date) else { return "" }
         f.dateFormat = "E"
         return String(f.string(from: d).prefix(1))
