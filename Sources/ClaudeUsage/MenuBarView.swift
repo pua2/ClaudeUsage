@@ -58,6 +58,22 @@ struct MenuBarView: View {
             }
             .disabled(stats.isLoading)
             Divider()
+            Toggle(isOn: Binding(
+                get: { stats.isAutoUpdateEnabled },
+                set: { stats.isAutoUpdateEnabled = $0 }
+            )) {
+                Label("Auto Check for Updates", systemImage: "arrow.triangle.2.circlepath")
+            }
+            if stats.updateAvailable {
+                Button(action: { stats.installUpdate() }) {
+                    Label("Update Available — Install Now", systemImage: "arrow.down.circle.fill")
+                }
+            } else {
+                Button(action: { stats.checkForUpdates(silent: false) }) {
+                    Label("Check for Updates", systemImage: "arrow.down.circle")
+                }
+            }
+            Divider()
             Button(action: { NSApplication.shared.terminate(nil) }) {
                 Label("Quit", systemImage: "power")
             }
@@ -67,6 +83,7 @@ struct MenuBarView: View {
                 .foregroundColor(.secondary)
         }
         .menuStyle(.borderlessButton)
+        .menuIndicator(.hidden)
         .frame(width: 20)
     }
 
@@ -159,16 +176,19 @@ struct MenuBarView: View {
     // MARK: - Model Breakdown (dynamic, under Weekly)
 
     private var modelBreakdown: some View {
+        let totalMessages = max(1, stats.weekStats.messages)
         let models = stats.weekStats.byModel.keys.sorted {
             (stats.weekStats.byModel[$0]?.messages ?? 0) > (stats.weekStats.byModel[$1]?.messages ?? 0)
         }
-        return VStack(alignment: .leading, spacing: 6) {
+        return VStack(alignment: .leading, spacing: 8) {
             ForEach(models, id: \.self) { model in
                 let ms = stats.weekStats.byModel[model] ?? ModelStats()
+                let pct = Double(ms.messages) / Double(totalMessages) * 100
                 modelRow(
                     name: model,
                     messages: ms.messages,
                     tokens: ms.outputTokens,
+                    pct: pct,
                     color: modelColor(model)
                 )
             }
@@ -185,21 +205,24 @@ struct MenuBarView: View {
         }
     }
 
-    private func modelRow(name: String, messages: Int, tokens: Int, color: Color) -> some View {
-        HStack(spacing: 6) {
-            Circle()
-                .fill(color.opacity(0.7))
-                .frame(width: 6, height: 6)
-            Text(name)
-                .font(.system(size: 11, weight: .medium))
-                .foregroundColor(.primary.opacity(0.8))
-            Spacer()
-            Text("\(fmt(messages)) msgs")
-                .font(.system(size: 10, design: .monospaced))
-                .foregroundColor(.secondary)
-            Text("\(fmt(tokens)) tok")
-                .font(.system(size: 10, design: .monospaced))
-                .foregroundColor(.secondary)
+    private func modelRow(name: String, messages: Int, tokens: Int, pct: Double, color: Color) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            HStack(spacing: 6) {
+                Circle()
+                    .fill(color.opacity(0.7))
+                    .frame(width: 6, height: 6)
+                Text(name)
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundColor(.primary.opacity(0.8))
+                Spacer()
+                Text("\(fmt(messages)) msgs")
+                    .font(.system(size: 10, design: .monospaced))
+                    .foregroundColor(.secondary)
+                Text("\(Int(pct.rounded()))%")
+                    .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                    .foregroundColor(color)
+            }
+            progressBar(pct: pct, color: color)
         }
     }
 

@@ -1,4 +1,4 @@
-import Foundation
+import AppKit
 
 // MARK: - Data Models
 
@@ -25,10 +25,26 @@ final class StatsModel: ObservableObject {
     @Published private(set) var todayStats = DayStats()
     @Published private(set) var weekStats = DayStats()
     @Published private(set) var last7Days: [(date: String, stats: DayStats)] = []
-    @Published private(set) var menuBarLabel = "—"
     @Published private(set) var isLoading = false
     @Published private(set) var usage: UsageData?
     @Published private(set) var lastRefreshed: Date?
+    @Published private(set) var updateAvailable = false
+    @Published private(set) var isUpdating = false
+
+    private var pendingUpdate: (repo: String, remoteSHA: String, commits: String)?
+    private var autoUpdateTimer: Timer?
+    private static let autoUpdateKey = "autoUpdateCheckEnabled"
+    private static let lastCheckKey = "lastAutoUpdateCheck"
+    private static let skippedSHAKey = "skippedUpdateSHA"
+
+    var isAutoUpdateEnabled: Bool {
+        get { UserDefaults.standard.object(forKey: Self.autoUpdateKey) as? Bool ?? true }
+        set {
+            UserDefaults.standard.set(newValue, forKey: Self.autoUpdateKey)
+            if newValue { scheduleAutoUpdateCheck() }
+            else { autoUpdateTimer?.invalidate(); autoUpdateTimer = nil }
+        }
+    }
 
     private let projectsDir = URL(fileURLWithPath: NSHomeDirectory())
         .appendingPathComponent(".claude/projects")
@@ -49,10 +65,6 @@ final class StatsModel: ObservableObject {
             let fetchedUsage = await usageFetch
             await MainActor.run { [weak self] in
                 self?.usage = fetchedUsage
-                if let u = fetchedUsage {
-                    let pct = u.sessionResetsAt != nil ? u.sessionPct : u.weeklyPct
-                    self?.menuBarLabel = "\(Int(pct.rounded()))%"
-                }
             }
 
             let fetchedStats = await statsFetch
@@ -105,6 +117,166 @@ final class StatsModel: ObservableObject {
         lines.append("Projects dir: \(projectsDir.path)")
 
         return lines.joined(separator: "\n")
+    }
+
+    // MARK: - Compact Time
+
+    /// Formats remaining time as max-3-char string: "35m", "2h", "6d".
+    static func compactTime(until date: Date) -> String {
+        let total = Int(date.timeIntervalSinceNow)
+        if total <= 0 { return "0m" }
+        let days = total / 86400
+        if days > 0 { return "\(days)d" }
+        let hours = total / 3600
+        let leftoverMin = (total % 3600) / 60
+        if hours > 0 { return "\(hours + (leftoverMin > 0 ? 1 : 0))h" }
+        return "\(max(1, leftoverMin))m"
+    }
+
+    // MARK: - Updates
+
+    func scheduleAutoUpdateCheck() {
+        guard isAutoUpdateEnabled else { return }
+        let lastCheck = UserDefaults.standard.double(forKey: Self.lastCheckKey)
+        let dayInterval: TimeInterval = 86400
+        if Date().timeIntervalSince1970 - lastCheck >= dayInterval {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 5) { [weak self] in
+                self?.checkForUpdates(silent: true)
+            }
+        }
+        autoUpdateTimer?.invalidate()
+        autoUpdateTimer = Timer.scheduledTimer(withTimeInterval: dayInterval, repeats: true) { [weak self] _ in
+            self?.checkForUpdates(silent: true)
+        }
+    }
+
+    func checkForUpdates(silent: Bool) {
+        DispatchQueue.global(qos: .utility).async { [weak self] in
+            guard let self else { return }
+            UserDefaults.standard.set(Date().timeIntervalSince1970, forKey: Self.lastCheckKey)
+
+            guard let repo = Self.repoDirectory() else {
+                if !silent { self.showUpdateAlert(title: "Update Error", message: "Could not find the ClaudeUsage git repository.") }
+                return
+            }
+            guard Self.runGit(["fetch", "origin"], in: repo) != nil else {
+                if !silent { self.showUpdateAlert(title: "Update Error", message: "git fetch failed. Check your network connection.") }
+                return
+            }
+            let localHead = Self.runGit(["rev-parse", "HEAD"], in: repo) ?? ""
+            let remoteHead = Self.runGit(["rev-parse", "origin/main"], in: repo) ?? ""
+            guard localHead != remoteHead else {
+                if !silent { self.showUpdateAlert(title: "Up to Date", message: "You're running the latest version.") }
+                return
+            }
+
+            let commits = Self.runGit(["log", "--oneline", "HEAD..origin/main"], in: repo) ?? "(unknown changes)"
+            let skipped = UserDefaults.standard.string(forKey: Self.skippedSHAKey)
+            DispatchQueue.main.async {
+                self.pendingUpdate = (repo, remoteHead, commits)
+                self.updateAvailable = true
+            }
+            if silent && skipped == remoteHead { return }
+
+            self.showUpdateAlert(
+                title: "Update Available",
+                message: "New commits on main:\n\n\(commits)",
+                showInstall: true,
+                remoteSHA: remoteHead
+            )
+        }
+    }
+
+    func installUpdate() {
+        guard let pending = pendingUpdate else { return }
+        isUpdating = true
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            guard Self.runGit(["pull", "origin", "main"], in: pending.repo) != nil else {
+                self?.showUpdateAlert(title: "Update Failed", message: "git pull failed.")
+                DispatchQueue.main.async { self?.isUpdating = false }
+                return
+            }
+            let make = Process()
+            make.executableURL = URL(fileURLWithPath: "/usr/bin/make")
+            make.arguments = ["install"]
+            make.currentDirectoryURL = URL(fileURLWithPath: pending.repo)
+            make.standardOutput = FileHandle.nullDevice
+            make.standardError = FileHandle.nullDevice
+            do { try make.run() } catch {
+                self?.showUpdateAlert(title: "Update Failed", message: "Build failed.")
+                DispatchQueue.main.async { self?.isUpdating = false }
+                return
+            }
+            make.waitUntilExit()
+            guard make.terminationStatus == 0 else {
+                self?.showUpdateAlert(title: "Update Failed", message: "Build failed (exit \(make.terminationStatus)).")
+                DispatchQueue.main.async { self?.isUpdating = false }
+                return
+            }
+            // make install kills old process and opens new one — but just in case:
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                let task = Process()
+                task.executableURL = URL(fileURLWithPath: "/usr/bin/open")
+                task.arguments = ["-n", "/Applications/ClaudeUsage.app"]
+                try? task.run()
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
+                    NSApplication.shared.terminate(nil)
+                }
+            }
+        }
+    }
+
+    private func showUpdateAlert(title: String, message: String, showInstall: Bool = false, remoteSHA: String? = nil) {
+        DispatchQueue.main.async { [weak self] in
+            let alert = NSAlert()
+            alert.messageText = title
+            alert.informativeText = message
+            alert.alertStyle = .informational
+            if showInstall {
+                alert.addButton(withTitle: "Install Now")
+                alert.addButton(withTitle: "Skip This Version")
+                alert.addButton(withTitle: "Later")
+                let response = alert.runModal()
+                if response == .alertFirstButtonReturn {
+                    self?.installUpdate()
+                } else if response == .alertSecondButtonReturn, let sha = remoteSHA {
+                    UserDefaults.standard.set(sha, forKey: Self.skippedSHAKey)
+                }
+            } else {
+                alert.addButton(withTitle: "OK")
+                alert.runModal()
+            }
+        }
+    }
+
+    private static func repoDirectory() -> String? {
+        if let saved = UserDefaults.standard.string(forKey: "repoPath"),
+           FileManager.default.fileExists(atPath: "\(saved)/.git") {
+            return saved
+        }
+        var url = URL(fileURLWithPath: Bundle.main.executablePath ?? "")
+        for _ in 0..<10 {
+            url = url.deletingLastPathComponent()
+            if FileManager.default.fileExists(atPath: url.appendingPathComponent(".git").path) {
+                return url.path
+            }
+        }
+        return nil
+    }
+
+    private static func runGit(_ arguments: [String], in directory: String) -> String? {
+        let proc = Process()
+        proc.executableURL = URL(fileURLWithPath: "/usr/bin/git")
+        proc.arguments = arguments
+        proc.currentDirectoryURL = URL(fileURLWithPath: directory)
+        let pipe = Pipe()
+        proc.standardOutput = pipe
+        proc.standardError = FileHandle.nullDevice
+        do { try proc.run() } catch { return nil }
+        let data = pipe.fileHandleForReading.readDataToEndOfFile()
+        proc.waitUntilExit()
+        guard proc.terminationStatus == 0 else { return nil }
+        return String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     // MARK: - Model Detection
