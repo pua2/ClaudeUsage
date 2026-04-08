@@ -1,0 +1,37 @@
+{
+  "": {
+    "dependencies": "/Users/pavanamin/Documents/git/claude-usage-menubar/.build/arm64-apple-macosx/release/ClaudeUsage.build/ClaudeUsage.d",
+    "object": "/Users/pavanamin/Documents/git/claude-usage-menubar/.build/arm64-apple-macosx/release/ClaudeUsage.build/ClaudeUsage.o",
+    "swift-dependencies": "/Users/pavanamin/Documents/git/claude-usage-menubar/.build/arm64-apple-macosx/release/ClaudeUsage.build/primary.swiftdeps"
+  },
+  "/Users/pavanamin/Documents/git/claude-usage-menubar/Sources/ClaudeUsage/AppDelegate.swift": {
+    "object": "/Users/pavanamin/Documents/git/claude-usage-menubar/.build/arm64-apple-macosx/release/ClaudeUsage.build/AppDelegate.swift.o",
+    "swiftmodule": "/Users/pavanamin/Documents/git/claude-usage-menubar/.build/arm64-apple-macosx/release/ClaudeUsage.build/AppDelegate~partial.swiftmodule",
+    "swift-dependencies": "/Users/pavanamin/Documents/git/claude-usage-menubar/.build/arm64-apple-macosx/release/ClaudeUsage.build/AppDelegate.swiftdeps",
+    "diagnostics": "/Users/pavanamin/Documents/git/claude-usage-menubar/.build/arm64-apple-macosx/release/ClaudeUsage.build/AppDelegate.dia"
+  },
+  "/Users/pavanamin/Documents/git/claude-usage-menubar/Sources/ClaudeUsage/ClaudeAuth.swift": {
+    "object": "/Users/pavanamin/Documents/git/claude-usage-menubar/.build/arm64-apple-macosx/release/ClaudeUsage.build/ClaudeAuth.swift.o",
+    "swiftmodule": "/Users/pavanamin/Documents/git/claude-usage-menubar/.build/arm64-apple-macosx/release/ClaudeUsage.build/ClaudeAuth~partial.swiftmodule",
+    "swift-dependencies": "/Users/pavanamin/Documents/git/claude-usage-menubar/.build/arm64-apple-macosx/release/ClaudeUsage.build/ClaudeAuth.swiftdeps",
+    "diagnostics": "/Users/pavanamin/Documents/git/claude-usage-menubar/.build/arm64-apple-macosx/release/ClaudeUsage.build/ClaudeAuth.dia"
+  },
+  "/Users/pavanamin/Documents/git/claude-usage-menubar/Sources/ClaudeUsage/MenuBarView.swift": {
+    "object": "/Users/pavanamin/Documents/git/claude-usage-menubar/.build/arm64-apple-macosx/release/ClaudeUsage.build/MenuBarView.swift.o",
+    "swiftmodule": "/Users/pavanamin/Documents/git/claude-usage-menubar/.build/arm64-apple-macosx/release/ClaudeUsage.build/MenuBarView~partial.swiftmodule",
+    "swift-dependencies": "/Users/pavanamin/Documents/git/claude-usage-menubar/.build/arm64-apple-macosx/release/ClaudeUsage.build/MenuBarView.swiftdeps",
+    "diagnostics": "/Users/pavanamin/Documents/git/claude-usage-menubar/.build/arm64-apple-macosx/release/ClaudeUsage.build/MenuBarView.dia"
+  },
+  "/Users/pavanamin/Documents/git/claude-usage-menubar/Sources/ClaudeUsage/StatsModel.swift": {
+    "object": "/Users/pavanamin/Documents/git/claude-usage-menubar/.build/arm64-apple-macosx/release/ClaudeUsage.build/StatsModel.swift.o",
+    "swiftmodule": "/Users/pavanamin/Documents/git/claude-usage-menubar/.build/arm64-apple-macosx/release/ClaudeUsage.build/StatsModel~partial.swiftmodule",
+    "swift-dependencies": "/Users/pavanamin/Documents/git/claude-usage-menubar/.build/arm64-apple-macosx/release/ClaudeUsage.build/StatsModel.swiftdeps",
+    "diagnostics": "/Users/pavanamin/Documents/git/claude-usage-menubar/.build/arm64-apple-macosx/release/ClaudeUsage.build/StatsModel.dia"
+  },
+  "/Users/pavanamin/Documents/git/claude-usage-menubar/Sources/ClaudeUsage/main.swift": {
+    "object": "/Users/pavanamin/Documents/git/claude-usage-menubar/.build/arm64-apple-macosx/release/ClaudeUsage.build/main.swift.o",
+    "swiftmodule": "/Users/pavanamin/Documents/git/claude-usage-menubar/.build/arm64-apple-macosx/release/ClaudeUsage.build/main~partial.swiftmodule",
+    "swift-dependencies": "/Users/pavanamin/Documents/git/claude-usage-menubar/.build/arm64-apple-macosx/release/ClaudeUsage.build/main.swiftdeps",
+    "diagnostics": "/Users/pavanamin/Documents/git/claude-usage-menubar/.build/arm64-apple-macosx/release/ClaudeUsage.build/main.dia"
+  }
+}

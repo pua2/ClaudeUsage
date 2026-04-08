@@ -1,0 +1,66 @@
+client:
+  name: basic
+  file-system: device-agnostic
+tools: {}
+targets:
+  "ClaudeUsage-arm64-apple-macosx-release.exe": ["<ClaudeUsage-arm64-apple-macosx-release.exe>"]
+  "ClaudeUsage-arm64-apple-macosx-release.module": ["<ClaudeUsage-arm64-apple-macosx-release.module>"]
+  "PackageStructure": ["<PackageStructure>"]
+  "main": ["<ClaudeUsage-arm64-apple-macosx-release.exe>","<ClaudeUsage-arm64-apple-macosx-release.module>"]
+  "test": ["<ClaudeUsage-arm64-apple-macosx-release.exe>","<ClaudeUsage-arm64-apple-macosx-release.module>"]
+default: "main"
+nodes:
+  "/Users/pavanamin/Documents/git/claude-usage-menubar/Sources/ClaudeUsage/":
+    is-directory-structure: true
+    content-exclusion-patterns: [".git",".build"]
+commands:
+  "/Users/pavanamin/Documents/git/claude-usage-menubar/.build/arm64-apple-macosx/release/ClaudeUsage.build/sources":
+    tool: write-auxiliary-file
+    inputs: ["<sources-file-list>","/Users/pavanamin/Documents/git/claude-usage-menubar/Sources/ClaudeUsage/AppDelegate.swift","/Users/pavanamin/Documents/git/claude-usage-menubar/Sources/ClaudeUsage/ClaudeAuth.swift","/Users/pavanamin/Documents/git/claude-usage-menubar/Sources/ClaudeUsage/MenuBarView.swift","/Users/pavanamin/Documents/git/claude-usage-menubar/Sources/ClaudeUsage/StatsModel.swift","/Users/pavanamin/Documents/git/claude-usage-menubar/Sources/ClaudeUsage/main.swift"]
+    outputs: ["/Users/pavanamin/Documents/git/claude-usage-menubar/.build/arm64-apple-macosx/release/ClaudeUsage.build/sources"]
+    description: "Write auxiliary file /Users/pavanamin/Documents/git/claude-usage-menubar/.build/arm64-apple-macosx/release/ClaudeUsage.build/sources"
+
+  "/Users/pavanamin/Documents/git/claude-usage-menubar/.build/arm64-apple-macosx/release/ClaudeUsage.product/Objects.LinkFileList":
+    tool: write-auxiliary-file
+    inputs: ["<link-file-list>","/Users/pavanamin/Documents/git/claude-usage-menubar/.build/arm64-apple-macosx/release/ClaudeUsage.build/AppDelegate.swift.o","/Users/pavanamin/Documents/git/claude-usage-menubar/.build/arm64-apple-macosx/release/ClaudeUsage.build/ClaudeAuth.swift.o","/Users/pavanamin/Documents/git/claude-usage-menubar/.build/arm64-apple-macosx/release/ClaudeUsage.build/MenuBarView.swift.o","/Users/pavanamin/Documents/git/claude-usage-menubar/.build/arm64-apple-macosx/release/ClaudeUsage.build/StatsModel.swift.o","/Users/pavanamin/Documents/git/claude-usage-menubar/.build/arm64-apple-macosx/release/ClaudeUsage.build/main.swift.o"]
+    outputs: ["/Users/pavanamin/Documents/git/claude-usage-menubar/.build/arm64-apple-macosx/release/ClaudeUsage.product/Objects.LinkFileList"]
+    description: "Write auxiliary file /Users/pavanamin/Documents/git/claude-usage-menubar/.build/arm64-apple-macosx/release/ClaudeUsage.product/Objects.LinkFileList"
+
+  "/Users/pavanamin/Documents/git/claude-usage-menubar/.build/arm64-apple-macosx/release/swift-version--58304C5D6DBC2206.txt":
+    tool: write-auxiliary-file
+    inputs: ["<swift-get-version>","/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc"]
+    outputs: ["/Users/pavanamin/Documents/git/claude-usage-menubar/.build/arm64-apple-macosx/release/swift-version--58304C5D6DBC2206.txt"]
+    always-out-of-date: "true"
+    description: "Write auxiliary file /Users/pavanamin/Documents/git/claude-usage-menubar/.build/arm64-apple-macosx/release/swift-version--58304C5D6DBC2206.txt"
+
+  "<ClaudeUsage-arm64-apple-macosx-release.exe>":
+    tool: phony
+    inputs: ["/Users/pavanamin/Documents/git/claude-usage-menubar/.build/arm64-apple-macosx/release/ClaudeUsage"]
+    outputs: ["<ClaudeUsage-arm64-apple-macosx-release.exe>"]
+
+  "<ClaudeUsage-arm64-apple-macosx-release.module>":
+    tool: phony
+    inputs: ["/Users/pavanamin/Documents/git/claude-usage-menubar/.build/arm64-apple-macosx/release/ClaudeUsage.build/AppDelegate.swift.o","/Users/pavanamin/Documents/git/claude-usage-menubar/.build/arm64-apple-macosx/release/ClaudeUsage.build/ClaudeAuth.swift.o","/Users/pavanamin/Documents/git/claude-usage-menubar/.build/arm64-apple-macosx/release/ClaudeUsage.build/MenuBarView.swift.o","/Users/pavanamin/Documents/git/claude-usage-menubar/.build/arm64-apple-macosx/release/ClaudeUsage.build/StatsModel.swift.o","/Users/pavanamin/Documents/git/claude-usage-menubar/.build/arm64-apple-macosx/release/ClaudeUsage.build/main.swift.o","/Users/pavanamin/Documents/git/claude-usage-menubar/.build/arm64-apple-macosx/release/Modules/ClaudeUsage.swiftmodule"]
+    outputs: ["<ClaudeUsage-arm64-apple-macosx-release.module>"]
+
+  "C.ClaudeUsage-arm64-apple-macosx-release.exe":
+    tool: shell
+    inputs: ["/Users/pavanamin/Documents/git/claude-usage-menubar/.build/arm64-apple-macosx/release/ClaudeUsage.build/AppDelegate.swift.o","/Users/pavanamin/Documents/git/claude-usage-menubar/.build/arm64-apple-macosx/release/ClaudeUsage.build/ClaudeAuth.swift.o","/Users/pavanamin/Documents/git/claude-usage-menubar/.build/arm64-apple-macosx/release/ClaudeUsage.build/MenuBarView.swift.o","/Users/pavanamin/Documents/git/claude-usage-menubar/.build/arm64-apple-macosx/release/ClaudeUsage.build/StatsModel.swift.o","/Users/pavanamin/Documents/git/claude-usage-menubar/.build/arm64-apple-macosx/release/ClaudeUsage.build/main.swift.o","/Users/pavanamin/Documents/git/claude-usage-menubar/.build/arm64-apple-macosx/release/ClaudeUsage.product/Objects.LinkFileList"]
+    outputs: ["/Users/pavanamin/Documents/git/claude-usage-menubar/.build/arm64-apple-macosx/release/ClaudeUsage"]
+    description: "Linking ./.build/arm64-apple-macosx/release/ClaudeUsage"
+    args: ["/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc","-L","/Users/pavanamin/Documents/git/claude-usage-menubar/.build/arm64-apple-macosx/release","-o","/Users/pavanamin/Documents/git/claude-usage-menubar/.build/arm64-apple-macosx/release/ClaudeUsage","-module-name","ClaudeUsage","-Xlinker","-no_warn_duplicate_libraries","-emit-executable","-Xlinker","-dead_strip","-Xlinker","-alias","-Xlinker","_ClaudeUsage_main","-Xlinker","_main","-Xlinker","-rpath","-Xlinker","@loader_path","@/Users/pavanamin/Documents/git/claude-usage-menubar/.build/arm64-apple-macosx/release/ClaudeUsage.product/Objects.LinkFileList","-Xlinker","-rpath","-Xlinker","/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift-6.2/macosx","-target","arm64-apple-macosx13.0","-lsqlite3","-plugin-path","/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing","-sdk","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.4.sdk","-F","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks","-I","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib","-L","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib","-g"]
+
+  "C.ClaudeUsage-arm64-apple-macosx-release.module":
+    tool: shell
+    inputs: ["/Users/pavanamin/Documents/git/claude-usage-menubar/Sources/ClaudeUsage/AppDelegate.swift","/Users/pavanamin/Documents/git/claude-usage-menubar/Sources/ClaudeUsage/ClaudeAuth.swift","/Users/pavanamin/Documents/git/claude-usage-menubar/Sources/ClaudeUsage/MenuBarView.swift","/Users/pavanamin/Documents/git/claude-usage-menubar/Sources/ClaudeUsage/StatsModel.swift","/Users/pavanamin/Documents/git/claude-usage-menubar/Sources/ClaudeUsage/main.swift","/Users/pavanamin/Documents/git/claude-usage-menubar/.build/arm64-apple-macosx/release/swift-version--58304C5D6DBC2206.txt","/Users/pavanamin/Documents/git/claude-usage-menubar/.build/arm64-apple-macosx/release/ClaudeUsage.build/sources"]
+    outputs: ["/Users/pavanamin/Documents/git/claude-usage-menubar/.build/arm64-apple-macosx/release/ClaudeUsage.build/AppDelegate.swift.o","/Users/pavanamin/Documents/git/claude-usage-menubar/.build/arm64-apple-macosx/release/ClaudeUsage.build/ClaudeAuth.swift.o","/Users/pavanamin/Documents/git/claude-usage-menubar/.build/arm64-apple-macosx/release/ClaudeUsage.build/MenuBarView.swift.o","/Users/pavanamin/Documents/git/claude-usage-menubar/.build/arm64-apple-macosx/release/ClaudeUsage.build/StatsModel.swift.o","/Users/pavanamin/Documents/git/claude-usage-menubar/.build/arm64-apple-macosx/release/ClaudeUsage.build/main.swift.o","/Users/pavanamin/Documents/git/claude-usage-menubar/.build/arm64-apple-macosx/release/Modules/ClaudeUsage.swiftmodule"]
+    description: "Compiling Swift Module 'ClaudeUsage' (5 sources)"
+    args: ["/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc","-module-name","ClaudeUsage","-emit-dependencies","-emit-module","-emit-module-path","/Users/pavanamin/Documents/git/claude-usage-menubar/.build/arm64-apple-macosx/release/Modules/ClaudeUsage.swiftmodule","-output-file-map","/Users/pavanamin/Documents/git/claude-usage-menubar/.build/arm64-apple-macosx/release/ClaudeUsage.build/output-file-map.json","-whole-module-optimization","-num-threads","12","-c","@/Users/pavanamin/Documents/git/claude-usage-menubar/.build/arm64-apple-macosx/release/ClaudeUsage.build/sources","-I","/Users/pavanamin/Documents/git/claude-usage-menubar/.build/arm64-apple-macosx/release/Modules","-target","arm64-apple-macosx13.0","-whole-module-optimization","-num-threads","12","-serialize-diagnostics","-O","-j12","-DSWIFT_PACKAGE","-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE","-module-cache-path","/Users/pavanamin/Documents/git/claude-usage-menubar/.build/arm64-apple-macosx/release/ModuleCache","-parseable-output","-Xfrontend","-entry-point-function-name","-Xfrontend","ClaudeUsage_main","-swift-version","5","-plugin-path","/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing","-sdk","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.4.sdk","-F","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks","-I","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib","-L","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib","-g","-Xcc","-isysroot","-Xcc","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.4.sdk","-Xcc","-F","-Xcc","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks","-Xcc","-fPIC","-Xcc","-g","-package-name","claude_usage_menubar"]
+
+  "PackageStructure":
+    tool: package-structure-tool
+    inputs: ["/Users/pavanamin/Documents/git/claude-usage-menubar/Sources/ClaudeUsage/","/Users/pavanamin/Documents/git/claude-usage-menubar/Package.swift","/Users/pavanamin/Documents/git/claude-usage-menubar/Package.resolved"]
+    outputs: ["<PackageStructure>"]
+    description: "Planning build"
+    allow-missing-inputs: true
+
