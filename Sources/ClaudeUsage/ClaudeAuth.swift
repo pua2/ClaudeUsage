@@ -103,28 +103,6 @@ enum ClaudeAuth {
         return rc == kCCSuccess ? Data(key) : nil
     }
 
-    // MARK: - SQLite
-
-    private static func readAndDecryptCookie(_ name: String, from dbPath: String, key: Data) -> String? {
-        var db: OpaquePointer?
-        guard sqlite3_open_v2(dbPath, &db, SQLITE_OPEN_READONLY, nil) == SQLITE_OK else { return nil }
-        defer { sqlite3_close(db) }
-
-        var stmt: OpaquePointer?
-        guard sqlite3_prepare_v2(db,
-            "SELECT encrypted_value FROM cookies WHERE name=? LIMIT 1", -1, &stmt, nil) == SQLITE_OK else { return nil }
-        defer { sqlite3_finalize(stmt) }
-
-        name.withCString { cStr in sqlite3_bind_text(stmt, 1, cStr, -1, nil) }
-        guard sqlite3_step(stmt) == SQLITE_ROW else { return nil }
-
-        let blobLen = Int(sqlite3_column_bytes(stmt, 0))
-        guard let blob = sqlite3_column_blob(stmt, 0), blobLen > 0 else { return nil }
-
-        let encrypted = Data(bytes: blob, count: blobLen)
-        return decryptChromeValue(encrypted, key: key)
-    }
-
     // MARK: - AES-128-CBC ("v10" prefix, 16-space IV)
 
     private static func decryptChromeValue(_ encrypted: Data, key: Data) -> String? {

@@ -9,17 +9,22 @@ struct DayStats {
     var inputTokens: Int = 0
     var cacheReadTokens: Int = 0
     var sessions: Set<String> = []
+    var sonnetMessages: Int = 0
+    var sonnetOutputTokens: Int = 0
+    var opusMessages: Int = 0
+    var opusOutputTokens: Int = 0
+
     var sessionCount: Int { sessions.count }
 }
 
 // MARK: - StatsModel
 
 final class StatsModel: ObservableObject {
-    @Published private(set) var todayStats   = DayStats()
-    @Published private(set) var weekStats    = DayStats()
+    @Published private(set) var todayStats = DayStats()
+    @Published private(set) var weekStats = DayStats()
     @Published private(set) var last7Days: [(date: String, stats: DayStats)] = []
     @Published private(set) var menuBarLabel = "—"
-    @Published private(set) var isLoading     = false
+    @Published private(set) var isLoading = false
     @Published private(set) var usage: UsageData?
     @Published private(set) var lastRefreshed: Date?
 
@@ -32,7 +37,6 @@ final class StatsModel: ObservableObject {
 
         let dir = projectsDir
         Task { [weak self] in
-            // Start both fetches concurrently
             async let usageFetch = ClaudeAuth.fetchUsage()
             async let statsFetch: [String: DayStats] = withCheckedContinuation { cont in
                 DispatchQueue.global(qos: .userInitiated).async {
@@ -40,7 +44,6 @@ final class StatsModel: ObservableObject {
                 }
             }
 
-            // Apply usage as soon as it arrives (fast — API call)
             let fetchedUsage = await usageFetch
             await MainActor.run { [weak self] in
                 self?.usage = fetchedUsage
@@ -50,7 +53,6 @@ final class StatsModel: ObservableObject {
                 }
             }
 
-            // Apply local stats (may take a moment — 500+ files)
             let fetchedStats = await statsFetch
             await MainActor.run { [weak self] in
                 guard let self else { return }
@@ -61,7 +63,47 @@ final class StatsModel: ObservableObject {
         }
     }
 
-    // MARK: - Parsing (static so it can be called off-actor)
+    // MARK: - Debug Info
+
+    var debugInfo: String {
+        var lines = [String]()
+        lines.append("ClaudeUsage Debug Info")
+        lines.append("macOS \(ProcessInfo.processInfo.operatingSystemVersionString)")
+        lines.append("Uptime: \(Int(ProcessInfo.processInfo.systemUptime))s")
+        lines.append("")
+
+        if let u = usage {
+            lines.append("Session: \(Int(u.sessionPct.rounded()))%")
+            lines.append("Weekly: \(Int(u.weeklyPct.rounded()))%")
+            if let reset = u.weeklyResetsAt {
+                lines.append("Weekly resets: \(ISO8601DateFormatter().string(from: reset))")
+            }
+        } else {
+            lines.append("Usage: unavailable")
+        }
+        lines.append("")
+
+        lines.append("Today: \(todayStats.messages) msgs, \(todayStats.toolCalls) tools, \(todayStats.outputTokens) out tokens")
+        lines.append("  Sonnet: \(todayStats.sonnetMessages) msgs, \(todayStats.sonnetOutputTokens) out tokens")
+        lines.append("  Opus: \(todayStats.opusMessages) msgs, \(todayStats.opusOutputTokens) out tokens")
+        lines.append("")
+
+        lines.append("Week: \(weekStats.messages) msgs, \(weekStats.toolCalls) tools, \(weekStats.outputTokens) out tokens")
+        lines.append("  Sonnet: \(weekStats.sonnetMessages) msgs, \(weekStats.sonnetOutputTokens) out tokens")
+        lines.append("  Opus: \(weekStats.opusMessages) msgs, \(weekStats.opusOutputTokens) out tokens")
+        lines.append("")
+
+        if let t = lastRefreshed {
+            let f = DateFormatter()
+            f.dateFormat = "yyyy-MM-dd HH:mm:ss"
+            lines.append("Last refresh: \(f.string(from: t))")
+        }
+        lines.append("Projects dir: \(projectsDir.path)")
+
+        return lines.joined(separator: "\n")
+    }
+
+    // MARK: - Parsing
 
     private static func parseFiles(in projectsDir: URL) -> [String: DayStats] {
         var byDay: [String: DayStats] = [:]
@@ -87,24 +129,34 @@ final class StatsModel: ObservableObject {
         guard let content = try? String(contentsOf: url, encoding: .utf8) else { return }
         for line in content.split(separator: "\n", omittingEmptySubsequences: true) {
             guard let data = line.data(using: .utf8),
-                  let obj  = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                  let ts   = obj["timestamp"] as? String else { continue }
+                  let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let ts = obj["timestamp"] as? String else { continue }
 
-            let day       = String(ts.prefix(10))
+            let day = String(ts.prefix(10))
             let sessionId = obj["sessionId"] as? String ?? url.path
 
             guard let message = obj["message"] as? [String: Any],
                   message["role"] as? String == "assistant" else { continue }
 
-            let usage = message["usage"] as? [String: Any] ?? [:]
-            let outTokens = usage["output_tokens"] as? Int ?? 0
+            let tokenUsage = message["usage"] as? [String: Any] ?? [:]
+            let outTokens = tokenUsage["output_tokens"] as? Int ?? 0
             guard outTokens > 0 else { continue }
 
-            byDay[day, default: DayStats()].messages      += 1
-            byDay[day]!.outputTokens   += outTokens
-            byDay[day]!.inputTokens    += usage["input_tokens"] as? Int ?? 0
-            byDay[day]!.cacheReadTokens += usage["cache_read_input_tokens"] as? Int ?? 0
+            let model = (message["model"] as? String ?? "").lowercased()
+
+            byDay[day, default: DayStats()].messages += 1
+            byDay[day]!.outputTokens += outTokens
+            byDay[day]!.inputTokens += tokenUsage["input_tokens"] as? Int ?? 0
+            byDay[day]!.cacheReadTokens += tokenUsage["cache_read_input_tokens"] as? Int ?? 0
             byDay[day]!.sessions.insert(sessionId)
+
+            if model.contains("sonnet") {
+                byDay[day]!.sonnetMessages += 1
+                byDay[day]!.sonnetOutputTokens += outTokens
+            } else if model.contains("opus") {
+                byDay[day]!.opusMessages += 1
+                byDay[day]!.opusOutputTokens += outTokens
+            }
 
             if let arr = message["content"] as? [[String: Any]] {
                 byDay[day]!.toolCalls += arr.filter { $0["type"] as? String == "tool_use" }.count
@@ -116,21 +168,25 @@ final class StatsModel: ObservableObject {
 
     private func apply(_ byDay: [String: DayStats]) {
         let cal = Calendar.current
-        let f   = DateFormatter()
+        let f = DateFormatter()
         f.dateFormat = "yyyy-MM-dd"
-        let today    = f.string(from: Date())
-        let weekAgo  = f.string(from: cal.date(byAdding: .day, value: -6, to: Date())!)
+        let today = f.string(from: Date())
+        let weekAgo = f.string(from: cal.date(byAdding: .day, value: -6, to: Date())!)
 
         todayStats = byDay[today] ?? DayStats()
 
         var week = DayStats()
         for (day, s) in byDay where day >= weekAgo {
-            week.messages      += s.messages
-            week.toolCalls     += s.toolCalls
-            week.outputTokens  += s.outputTokens
-            week.inputTokens   += s.inputTokens
+            week.messages += s.messages
+            week.toolCalls += s.toolCalls
+            week.outputTokens += s.outputTokens
+            week.inputTokens += s.inputTokens
             week.cacheReadTokens += s.cacheReadTokens
             week.sessions.formUnion(s.sessions)
+            week.sonnetMessages += s.sonnetMessages
+            week.sonnetOutputTokens += s.sonnetOutputTokens
+            week.opusMessages += s.opusMessages
+            week.opusOutputTokens += s.opusOutputTokens
         }
         weekStats = week
 
