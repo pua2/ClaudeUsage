@@ -16,10 +16,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         setupStatusItem()
         stats.load()
+        stats.scheduleAutoUpdateCheck()
 
-        cancellable = stats.$menuBarLabel
+        cancellable = stats.$usage
             .receive(on: RunLoop.main)
-            .sink { [weak self] label in self?.updateButton(label: label) }
+            .sink { [weak self] _ in self?.updateStatusBar() }
 
         timer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in
             self?.stats.load()
@@ -33,24 +34,117 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         guard let button = statusItem.button else { return }
         button.action = #selector(togglePanel)
         button.target = self
-        updateButton(label: "—")
+        updateStatusBar()
     }
 
-    private func updateButton(label: String) {
+    private func updateStatusBar() {
         guard let button = statusItem.button else { return }
-        if button.image == nil, let icon = loadAppIcon() {
-            icon.size = NSSize(width: 18, height: 18)
-            button.image = icon
-            button.imagePosition = .imageLeft
+        guard let u = stats.usage else {
+            button.image = nil
+            button.title = "—"
+            return
         }
-        button.title = " \(label)"
+
+        let hasSession = u.sessionResetsAt != nil
+        let sessionTime = u.sessionResetsAt.map { StatsModel.compactTime(until: $0) }
+        let weeklyTime = u.weeklyResetsAt.map { StatsModel.compactTime(until: $0) }
+
+        button.image = drawStatusIcon(
+            sessionPct: hasSession ? u.sessionPct : nil,
+            weeklyPct: u.weeklyPct,
+            sessionTime: hasSession ? sessionTime : nil,
+            weeklyTime: weeklyTime
+        )
+        button.imagePosition = .imageOnly
+        button.title = ""
     }
 
-    private func loadAppIcon() -> NSImage? {
-        if let url = Bundle.main.url(forResource: "AppIcon", withExtension: "icns") {
-            return NSImage(contentsOf: url)
+    // MARK: - Ring Drawing
+
+    private func ringColor(for pct: Double) -> NSColor {
+        switch pct {
+        case ..<50: return .systemGreen
+        case ..<75: return .systemYellow
+        case ..<90: return .systemOrange
+        default:    return .systemRed
         }
-        return NSImage(named: NSImage.applicationIconName)
+    }
+
+    private func drawStatusIcon(
+        sessionPct: Double?,
+        weeklyPct: Double,
+        sessionTime: String?,
+        weeklyTime: String?
+    ) -> NSImage {
+        let ringDiameter: CGFloat = 18
+        let textWidth: CGFloat = 22
+        let gap: CGFloat = 2
+        let height: CGFloat = 18
+        let totalWidth = ringDiameter + gap + textWidth
+
+        let image = NSImage(size: NSSize(width: totalWidth, height: height), flipped: true) { _ in
+            let center = NSPoint(x: ringDiameter / 2, y: height / 2)
+
+            // Outer ring — weekly
+            let outerRadius: CGFloat = 7.5
+            let outerWidth: CGFloat = 2.0
+            self.drawRing(center: center, radius: outerRadius, lineWidth: outerWidth,
+                          pct: weeklyPct, color: self.ringColor(for: weeklyPct))
+
+            // Inner ring — session (only when active)
+            if let sPct = sessionPct {
+                let innerRadius: CGFloat = 4.5
+                let innerWidth: CGFloat = 2.0
+                self.drawRing(center: center, radius: innerRadius, lineWidth: innerWidth,
+                              pct: sPct, color: self.ringColor(for: sPct))
+            }
+
+            // Stacked time text
+            let font = NSFont.monospacedDigitSystemFont(ofSize: 8, weight: .semibold)
+            let textColor = NSColor.labelColor
+            let attrs: [NSAttributedString.Key: Any] = [
+                .font: font, .foregroundColor: textColor
+            ]
+            let textX = ringDiameter + gap
+
+            if let sTime = sessionTime, let wTime = weeklyTime {
+                // Two lines: session on top, weekly below
+                let top = NSString(string: sTime)
+                top.draw(at: NSPoint(x: textX, y: 1), withAttributes: attrs)
+                let bot = NSString(string: wTime)
+                bot.draw(at: NSPoint(x: textX, y: 10), withAttributes: attrs)
+            } else if let wTime = weeklyTime {
+                // Single line centered
+                let text = NSString(string: wTime)
+                text.draw(at: NSPoint(x: textX, y: 5), withAttributes: attrs)
+            }
+
+            return true
+        }
+
+        image.isTemplate = false
+        return image
+    }
+
+    private func drawRing(center: NSPoint, radius: CGFloat, lineWidth: CGFloat,
+                          pct: Double, color: NSColor) {
+        // Track
+        let track = NSBezierPath()
+        track.appendArc(withCenter: center, radius: radius, startAngle: 0, endAngle: 360)
+        track.lineWidth = lineWidth
+        NSColor.gray.withAlphaComponent(0.25).setStroke()
+        track.stroke()
+
+        // Filled arc (clockwise from 12 o'clock)
+        guard pct > 0 else { return }
+        let startAngle: CGFloat = 90
+        let endAngle = 90 - CGFloat(pct / 100) * 360
+        let arc = NSBezierPath()
+        arc.appendArc(withCenter: center, radius: radius, startAngle: startAngle, endAngle: endAngle, clockwise: true)
+        arc.lineWidth = lineWidth
+        arc.lineCapStyle = .round
+        color.setStroke()
+        arc.stroke()
     }
 
     // MARK: - Panel

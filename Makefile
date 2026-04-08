@@ -13,7 +13,7 @@ build:
 	cp "Resources/AppIcon.icns"     "$(APP_BUNDLE)/Contents/Resources/"
 	find "$(APP_BUNDLE)" -name "._*" -delete
 	xattr -rc "$(APP_BUNDLE)"
-	codesign --force --deep -s - "$(APP_BUNDLE)"
+	codesign --force --deep -s "Apple Development" "$(APP_BUNDLE)" 2>/dev/null || codesign --force --deep -s - "$(APP_BUNDLE)"
 	@echo "✓ Built: $(APP_BUNDLE)"
 
 run: build
@@ -23,6 +23,7 @@ run: build
 install: build
 	@pkill -x $(APP_NAME) 2>/dev/null || true
 	cp -rf "$(APP_BUNDLE)" /Applications/
+	@defaults write com.pua2.claudeusage repoPath "$$(pwd)"
 	open /Applications/$(APP_NAME).app
 	@echo "✓ Installed to /Applications/$(APP_NAME).app"
 
