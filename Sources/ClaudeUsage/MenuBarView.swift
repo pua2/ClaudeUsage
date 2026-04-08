@@ -156,24 +156,33 @@ struct MenuBarView: View {
         .frame(height: 6)
     }
 
-    // MARK: - Model Breakdown (Sonnet / Opus under Weekly)
+    // MARK: - Model Breakdown (dynamic, under Weekly)
 
     private var modelBreakdown: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            modelRow(
-                name: "Sonnet",
-                messages: stats.weekStats.sonnetMessages,
-                tokens: stats.weekStats.sonnetOutputTokens,
-                color: .blue
-            )
-            modelRow(
-                name: "Opus",
-                messages: stats.weekStats.opusMessages,
-                tokens: stats.weekStats.opusOutputTokens,
-                color: .purple
-            )
+        let models = stats.weekStats.byModel.keys.sorted {
+            (stats.weekStats.byModel[$0]?.messages ?? 0) > (stats.weekStats.byModel[$1]?.messages ?? 0)
+        }
+        return VStack(alignment: .leading, spacing: 6) {
+            ForEach(models, id: \.self) { model in
+                let ms = stats.weekStats.byModel[model] ?? ModelStats()
+                modelRow(
+                    name: model,
+                    messages: ms.messages,
+                    tokens: ms.outputTokens,
+                    color: modelColor(model)
+                )
+            }
         }
         .padding(.leading, 12)
+    }
+
+    private func modelColor(_ name: String) -> Color {
+        switch name.lowercased() {
+        case "sonnet": return .blue
+        case "opus":   return .purple
+        case "haiku":  return .green
+        default:       return .orange
+        }
     }
 
     private func modelRow(name: String, messages: Int, tokens: Int, color: Color) -> some View {
@@ -203,6 +212,8 @@ struct MenuBarView: View {
             statRow("Tool calls", value: fmt(s.toolCalls), icon: "wrench.and.screwdriver")
             statRow("Sessions", value: "\(s.sessionCount)", icon: "terminal")
             statRow("Output tokens", value: fmt(s.outputTokens), icon: "arrow.up.circle")
+            statRow("Input tokens", value: fmt(s.inputTokens), icon: "arrow.down.circle")
+            statRow("Cache read", value: fmt(s.cacheReadTokens), icon: "arrow.triangle.2.circlepath")
         }
     }
 

@@ -7,6 +7,7 @@ import Combine
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem!
     private var panel: NSPanel?
+    private var hostingController: NSViewController?
     private let stats = StatsModel()
     private var timer: Timer?
     private var cancellable: AnyCancellable?
@@ -37,12 +38,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func updateButton(label: String) {
         guard let button = statusItem.button else { return }
-        let cfg = NSImage.SymbolConfiguration(pointSize: 12, weight: .regular)
-        if let img = NSImage(systemSymbolName: "brain.head.profile", accessibilityDescription: "Claude") {
-            button.image = img.withSymbolConfiguration(cfg)
+        if button.image == nil, let icon = loadAppIcon() {
+            icon.size = NSSize(width: 18, height: 18)
+            button.image = icon
             button.imagePosition = .imageLeft
         }
         button.title = " \(label)"
+    }
+
+    private func loadAppIcon() -> NSImage? {
+        if let url = Bundle.main.url(forResource: "AppIcon", withExtension: "icns") {
+            return NSImage(contentsOf: url)
+        }
+        return NSImage(named: NSImage.applicationIconName)
     }
 
     // MARK: - Panel
@@ -61,46 +69,67 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         // Build panel on first use
         if panel == nil {
-            let hosting = NSHostingController(rootView: MenuBarView().environmentObject(stats))
-            hosting.view.frame = NSRect(x: 0, y: 0, width: 300, height: 500)
+            let hc = NSHostingController(rootView: MenuBarView().environmentObject(stats))
+            hc.sizingOptions = .intrinsicContentSize
+            hostingController = hc
 
             let p = NSPanel(
-                contentRect: hosting.view.frame,
+                contentRect: .zero,
                 styleMask:   [.borderless, .nonactivatingPanel],
                 backing:     .buffered,
                 defer:       false
             )
-            p.contentViewController = hosting
+            p.contentViewController = hc
             p.backgroundColor  = NSColor.windowBackgroundColor
             p.isOpaque         = true
             p.hasShadow        = true
             p.level            = .popUpMenu
             p.collectionBehavior = [.canJoinAllSpaces, .ignoresCycle]
+
+            hc.view.postsFrameChangedNotifications = true
+            NotificationCenter.default.addObserver(
+                self, selector: #selector(contentDidResize),
+                name: NSView.frameDidChangeNotification, object: hc.view
+            )
+
             panel = p
         }
 
-        // Position directly below the status item button
-        let btnRect    = button.convert(button.bounds, to: nil)
-        let screenRect = buttonWindow.convertToScreen(btnRect)
-        let panelWidth: CGFloat  = 300
-        let panelHeight: CGFloat = 500
-
-        // Center horizontally on the button, drop below it
-        var x = screenRect.midX - panelWidth / 2
-        let y = screenRect.minY - panelHeight - 4
-
-        // Keep within screen bounds
-        if let screen = NSScreen.main {
-            x = max(screen.visibleFrame.minX + 8, min(x, screen.visibleFrame.maxX - panelWidth - 8))
-        }
-
-        panel?.setFrame(NSRect(x: x, y: y, width: panelWidth, height: panelHeight), display: false)
+        positionPanel(below: button, in: buttonWindow)
         panel?.makeKeyAndOrderFront(nil)
 
         // Dismiss on click outside
         eventMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] _ in
             self?.closePanel()
         }
+    }
+
+    private func positionPanel(below button: NSStatusBarButton? = nil, in buttonWindow: NSWindow? = nil) {
+        guard let panel else { return }
+        let resolvedButton = button ?? statusItem.button
+        let resolvedWindow = buttonWindow ?? resolvedButton?.window
+        guard let btn = resolvedButton, let btnWin = resolvedWindow else { return }
+
+        let btnRect    = btn.convert(btn.bounds, to: nil)
+        let screenRect = btnWin.convertToScreen(btnRect)
+        let panelWidth: CGFloat = 300
+        let contentHeight = hostingController?.view.fittingSize.height ?? 500
+        let maxHeight = (NSScreen.main?.visibleFrame.height ?? 800) - 40
+        let panelHeight = min(contentHeight, maxHeight)
+
+        var x = screenRect.midX - panelWidth / 2
+        let y = screenRect.minY - panelHeight - 4
+
+        if let screen = NSScreen.main {
+            x = max(screen.visibleFrame.minX + 8, min(x, screen.visibleFrame.maxX - panelWidth - 8))
+        }
+
+        panel.setFrame(NSRect(x: x, y: y, width: panelWidth, height: panelHeight), display: true)
+    }
+
+    @objc private func contentDidResize() {
+        guard panel?.isVisible == true else { return }
+        positionPanel()
     }
 
     private func closePanel() {

@@ -2,6 +2,11 @@ import Foundation
 
 // MARK: - Data Models
 
+struct ModelStats {
+    var messages: Int = 0
+    var outputTokens: Int = 0
+}
+
 struct DayStats {
     var messages: Int = 0
     var toolCalls: Int = 0
@@ -9,10 +14,7 @@ struct DayStats {
     var inputTokens: Int = 0
     var cacheReadTokens: Int = 0
     var sessions: Set<String> = []
-    var sonnetMessages: Int = 0
-    var sonnetOutputTokens: Int = 0
-    var opusMessages: Int = 0
-    var opusOutputTokens: Int = 0
+    var byModel: [String: ModelStats] = [:]
 
     var sessionCount: Int { sessions.count }
 }
@@ -84,13 +86,15 @@ final class StatsModel: ObservableObject {
         lines.append("")
 
         lines.append("Today: \(todayStats.messages) msgs, \(todayStats.toolCalls) tools, \(todayStats.outputTokens) out tokens")
-        lines.append("  Sonnet: \(todayStats.sonnetMessages) msgs, \(todayStats.sonnetOutputTokens) out tokens")
-        lines.append("  Opus: \(todayStats.opusMessages) msgs, \(todayStats.opusOutputTokens) out tokens")
+        for (model, ms) in todayStats.byModel.sorted(by: { $0.value.messages > $1.value.messages }) {
+            lines.append("  \(model): \(ms.messages) msgs, \(ms.outputTokens) out tokens")
+        }
         lines.append("")
 
         lines.append("Week: \(weekStats.messages) msgs, \(weekStats.toolCalls) tools, \(weekStats.outputTokens) out tokens")
-        lines.append("  Sonnet: \(weekStats.sonnetMessages) msgs, \(weekStats.sonnetOutputTokens) out tokens")
-        lines.append("  Opus: \(weekStats.opusMessages) msgs, \(weekStats.opusOutputTokens) out tokens")
+        for (model, ms) in weekStats.byModel.sorted(by: { $0.value.messages > $1.value.messages }) {
+            lines.append("  \(model): \(ms.messages) msgs, \(ms.outputTokens) out tokens")
+        }
         lines.append("")
 
         if let t = lastRefreshed {
@@ -101,6 +105,18 @@ final class StatsModel: ObservableObject {
         lines.append("Projects dir: \(projectsDir.path)")
 
         return lines.joined(separator: "\n")
+    }
+
+    // MARK: - Model Detection
+
+    /// Extracts the model family name (e.g. "Sonnet", "Opus", "Haiku") from a model string.
+    /// Handles patterns like "claude-sonnet-4-6", "claude-3-5-sonnet-20241022", etc.
+    static func extractModelFamily(from model: String) -> String {
+        let parts = model.lowercased().split(separator: "-")
+        guard let family = parts.first(where: { $0 != "claude" && !$0.allSatisfy(\.isNumber) }) else {
+            return ""
+        }
+        return String(family).capitalized
     }
 
     // MARK: - Parsing
@@ -150,12 +166,10 @@ final class StatsModel: ObservableObject {
             byDay[day]!.cacheReadTokens += tokenUsage["cache_read_input_tokens"] as? Int ?? 0
             byDay[day]!.sessions.insert(sessionId)
 
-            if model.contains("sonnet") {
-                byDay[day]!.sonnetMessages += 1
-                byDay[day]!.sonnetOutputTokens += outTokens
-            } else if model.contains("opus") {
-                byDay[day]!.opusMessages += 1
-                byDay[day]!.opusOutputTokens += outTokens
+            let family = extractModelFamily(from: model)
+            if !family.isEmpty {
+                byDay[day]!.byModel[family, default: ModelStats()].messages += 1
+                byDay[day]!.byModel[family, default: ModelStats()].outputTokens += outTokens
             }
 
             if let arr = message["content"] as? [[String: Any]] {
@@ -183,10 +197,10 @@ final class StatsModel: ObservableObject {
             week.inputTokens += s.inputTokens
             week.cacheReadTokens += s.cacheReadTokens
             week.sessions.formUnion(s.sessions)
-            week.sonnetMessages += s.sonnetMessages
-            week.sonnetOutputTokens += s.sonnetOutputTokens
-            week.opusMessages += s.opusMessages
-            week.opusOutputTokens += s.opusOutputTokens
+            for (model, ms) in s.byModel {
+                week.byModel[model, default: ModelStats()].messages += ms.messages
+                week.byModel[model, default: ModelStats()].outputTokens += ms.outputTokens
+            }
         }
         weekStats = week
 
