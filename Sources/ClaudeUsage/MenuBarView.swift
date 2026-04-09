@@ -305,7 +305,7 @@ struct MenuBarView: View {
     private func color(for pct: Double) -> Color {
         switch pct {
         case ..<50: return .green
-        case ..<75: return .yellow
+        case ..<75: return Color(.sRGB, red: 0.9, green: 0.65, blue: 0.0)
         case ..<90: return .orange
         default: return .red
         }
