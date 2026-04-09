@@ -61,14 +61,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     // MARK: - Ring Drawing
 
-    private func ringColor(for pct: Double) -> NSColor {
-        switch pct {
-        case ..<50: return .systemGreen
-        case ..<75: return NSColor(srgbRed: 0.9, green: 0.65, blue: 0.0, alpha: 1.0)
-        case ..<90: return .systemOrange
-        default:    return .systemRed
-        }
-    }
+    private let sessionColor: NSColor = .systemOrange
+    private let weeklyColor: NSColor = .systemPurple
 
     private func drawStatusIcon(
         sessionPct: Double?,
@@ -76,47 +70,58 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         sessionTime: String?,
         weeklyTime: String?
     ) -> NSImage {
-        let ringDiameter: CGFloat = 18
-        let textWidth: CGFloat = 22
-        let gap: CGFloat = 2
         let height: CGFloat = 18
-        let totalWidth = ringDiameter + gap + textWidth
+        let iconGap: CGFloat = 1
+        let timeGap: CGFloat = 3
+        let iconSize: CGFloat = 18
+        let hasSession = sessionPct != nil
+        let font = NSFont.monospacedDigitSystemFont(ofSize: 8, weight: .semibold)
+
+        let pctColWidth: CGFloat = hasSession ? 24 : 0
+        let timeColWidth: CGFloat = 22
+        let totalWidth = pctColWidth + (hasSession ? iconGap : 0) + iconSize + timeGap + timeColWidth
 
         let image = NSImage(size: NSSize(width: totalWidth, height: height), flipped: true) { _ in
-            let center = NSPoint(x: ringDiameter / 2, y: height / 2)
+            var cursorX: CGFloat = 0
 
-            // Outer ring — weekly
-            let outerRadius: CGFloat = 7.5
-            let outerWidth: CGFloat = 2.0
-            self.drawRing(center: center, radius: outerRadius, lineWidth: outerWidth,
-                          pct: weeklyPct, color: self.ringColor(for: weeklyPct))
-
-            // Inner ring — session (only when active)
             if let sPct = sessionPct {
-                let innerRadius: CGFloat = 4.5
-                let innerWidth: CGFloat = 2.0
-                self.drawRing(center: center, radius: innerRadius, lineWidth: innerWidth,
-                              pct: sPct, color: self.ringColor(for: sPct))
+                // Left column — stacked percentages
+                let sessionAttrs: [NSAttributedString.Key: Any] = [
+                    .font: font, .foregroundColor: self.sessionColor
+                ]
+                let weeklyAttrs: [NSAttributedString.Key: Any] = [
+                    .font: font, .foregroundColor: self.weeklyColor
+                ]
+                let topText = NSString(string: "\(Int(sPct.rounded()))%")
+                topText.draw(at: NSPoint(x: 0, y: 1), withAttributes: sessionAttrs)
+                let botText = NSString(string: "\(Int(weeklyPct.rounded()))%")
+                botText.draw(at: NSPoint(x: 0, y: 10), withAttributes: weeklyAttrs)
+                cursorX = pctColWidth + iconGap
             }
 
-            // Stacked time text
-            let font = NSFont.monospacedDigitSystemFont(ofSize: 8, weight: .semibold)
+            // Center — app icon
+            if let appIcon = NSImage(named: "AppIcon") {
+                let iconRect = NSRect(x: cursorX + (iconSize - iconSize) / 2,
+                                      y: (height - iconSize) / 2,
+                                      width: iconSize, height: iconSize)
+                appIcon.draw(in: iconRect)
+            }
+            cursorX += iconSize + timeGap
+
+            // Right column — stacked time text
             let textColor = NSColor.labelColor
-            let attrs: [NSAttributedString.Key: Any] = [
+            let timeAttrs: [NSAttributedString.Key: Any] = [
                 .font: font, .foregroundColor: textColor
             ]
-            let textX = ringDiameter + gap
 
             if let sTime = sessionTime, let wTime = weeklyTime {
-                // Two lines: session on top, weekly below
                 let top = NSString(string: sTime)
-                top.draw(at: NSPoint(x: textX, y: 1), withAttributes: attrs)
+                top.draw(at: NSPoint(x: cursorX, y: 1), withAttributes: timeAttrs)
                 let bot = NSString(string: wTime)
-                bot.draw(at: NSPoint(x: textX, y: 10), withAttributes: attrs)
+                bot.draw(at: NSPoint(x: cursorX, y: 10), withAttributes: timeAttrs)
             } else if let wTime = weeklyTime {
-                // Single line centered
                 let text = NSString(string: wTime)
-                text.draw(at: NSPoint(x: textX, y: 5), withAttributes: attrs)
+                text.draw(at: NSPoint(x: cursorX, y: 5), withAttributes: timeAttrs)
             }
 
             return true
