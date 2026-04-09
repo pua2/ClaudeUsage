@@ -16,10 +16,29 @@ struct DayStats {
     var cacheCreationTokens: Int = 0
     var sessions: Set<String> = []
     var byModel: [String: ModelStats] = [:]
+    var toolsByName: [String: Int] = [:]
+    var stopReasons: [String: Int] = [:]
+    var responsesBySession: [String: Int] = [:]
 
     var sessionCount: Int { sessions.count }
     /// Total tokens sent to Claude: raw input + cache reads + cache creation.
     var totalInputTokens: Int { inputTokens + cacheReadTokens + cacheCreationTokens }
+    var cacheHitRate: Double {
+        let total = cacheReadTokens + cacheCreationTokens + inputTokens
+        guard total > 0 else { return 0 }
+        return Double(cacheReadTokens) / Double(total) * 100
+    }
+    var avgResponsesPerSession: Double {
+        guard sessionCount > 0 else { return 0 }
+        return Double(messages) / Double(sessionCount)
+    }
+    var avgTokensPerResponse: Int {
+        guard messages > 0 else { return 0 }
+        return outputTokens / messages
+    }
+    var longestSession: Int {
+        responsesBySession.values.max() ?? 0
+    }
 }
 
 // MARK: - StatsModel
@@ -359,8 +378,20 @@ final class StatsModel: ObservableObject {
             }
 
             if let arr = message["content"] as? [[String: Any]] {
-                byDay[day]!.toolCalls += arr.filter { $0["type"] as? String == "tool_use" }.count
+                let tools = arr.filter { $0["type"] as? String == "tool_use" }
+                byDay[day]!.toolCalls += tools.count
+                for tool in tools {
+                    if let name = tool["name"] as? String {
+                        byDay[day]!.toolsByName[name, default: 0] += 1
+                    }
+                }
             }
+
+            if let stopReason = message["stop_reason"] as? String, !stopReason.isEmpty {
+                byDay[day]!.stopReasons[stopReason, default: 0] += 1
+            }
+
+            byDay[day]!.responsesBySession[filePath, default: 0] += 1
         }
 
         // Count this file as one session for every day it had any activity
@@ -397,6 +428,15 @@ final class StatsModel: ObservableObject {
             for (model, ms) in s.byModel {
                 week.byModel[model, default: ModelStats()].messages += ms.messages
                 week.byModel[model, default: ModelStats()].outputTokens += ms.outputTokens
+            }
+            for (tool, count) in s.toolsByName {
+                week.toolsByName[tool, default: 0] += count
+            }
+            for (reason, count) in s.stopReasons {
+                week.stopReasons[reason, default: 0] += count
+            }
+            for (session, count) in s.responsesBySession {
+                week.responsesBySession[session, default: 0] += count
             }
         }
         weekStats = week

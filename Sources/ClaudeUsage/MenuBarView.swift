@@ -6,21 +6,17 @@ import AppKit
 struct MenuBarView: View {
     @EnvironmentObject private var stats: StatsModel
     @State private var weeklyExpanded = false
+    @State private var selectedTab = 0
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             header
-            if let usage = stats.usage {
-                divider
-                usageSection(usage)
-            }
             divider
-            statsSection(title: "Today", s: stats.todayStats)
-            divider
-            statsSection(title: "Last 7 Days", s: stats.weekStats)
-            if stats.last7Days.contains(where: { $0.stats.messages > 0 }) {
-                divider
-                chartSection
+            tabPicker
+            if selectedTab == 0 {
+                usageTab
+            } else {
+                insightsTab
             }
             divider
             footer
@@ -28,6 +24,36 @@ struct MenuBarView: View {
         .padding(16)
         .frame(width: 300)
         .onAppear { stats.load() }
+    }
+
+    private var tabPicker: some View {
+        Picker("", selection: $selectedTab) {
+            Text("Usage").tag(0)
+            Text("Insights").tag(1)
+        }
+        .pickerStyle(.segmented)
+        .labelsHidden()
+        .padding(.bottom, 8)
+    }
+
+    private var usageTab: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            if let usage = stats.usage {
+                usageSection(usage)
+                divider
+            }
+            statsSection(title: "Today", s: stats.todayStats)
+            divider
+            statsSection(title: "Last 7 Days", s: stats.weekStats)
+            if stats.last7Days.contains(where: { $0.stats.messages > 0 }) {
+                divider
+                chartSection
+            }
+        }
+    }
+
+    private var insightsTab: some View {
+        InsightsView(stats: stats.weekStats, title: "Last 7 Days")
     }
 
     // MARK: - Header
@@ -43,6 +69,13 @@ struct MenuBarView: View {
             if stats.isLoading {
                 ProgressView().scaleEffect(0.6)
             }
+            Button(action: { stats.load() }) {
+                Image(systemName: "arrow.clockwise")
+                    .font(.system(size: 13))
+                    .foregroundColor(.secondary)
+            }
+            .buttonStyle(.plain)
+            .disabled(stats.isLoading)
             settingsMenu
         }
     }
@@ -52,11 +85,6 @@ struct MenuBarView: View {
             Button(action: copyDebugInfo) {
                 Label("Copy Debug Info", systemImage: "doc.on.clipboard")
             }
-            Divider()
-            Button(action: { stats.load() }) {
-                Label("Refresh", systemImage: "arrow.clockwise")
-            }
-            .disabled(stats.isLoading)
             Divider()
             Toggle(isOn: Binding(
                 get: { stats.isAutoUpdateEnabled },
@@ -252,9 +280,9 @@ struct MenuBarView: View {
     // MARK: - Footer
 
     private var footer: some View {
-        Group {
+        TimelineView(.periodic(from: .now, by: 30)) { context in
             if let t = stats.lastRefreshed {
-                Text("Updated \(refreshedLabel(t))")
+                Text("Updated \(refreshedLabel(t, now: context.date))")
                     .font(.system(size: 10))
                     .foregroundColor(.secondary)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -301,9 +329,9 @@ struct MenuBarView: View {
         return "in \(m)m"
     }
 
-    private func refreshedLabel(_ date: Date) -> String {
-        let s = Int(-date.timeIntervalSinceNow)
-        if s < 60 { return "just now" }
+    private func refreshedLabel(_ date: Date, now: Date) -> String {
+        let s = Int(now.timeIntervalSince(date))
+        if s < 30 { return "just now" }
         if s < 3600 { return "\(s / 60)m ago" }
         return "\(s / 3600)h ago"
     }
