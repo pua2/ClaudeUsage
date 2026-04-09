@@ -93,9 +93,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     .font: font, .foregroundColor: self.weeklyColor
                 ]
                 let topText = NSString(string: "\(Int(sPct.rounded()))%")
-                topText.draw(at: NSPoint(x: 0, y: 1), withAttributes: sessionAttrs)
+                let topSize = topText.size(withAttributes: sessionAttrs)
+                topText.draw(at: NSPoint(x: pctColWidth - topSize.width, y: 1), withAttributes: sessionAttrs)
                 let botText = NSString(string: "\(Int(weeklyPct.rounded()))%")
-                botText.draw(at: NSPoint(x: 0, y: 10), withAttributes: weeklyAttrs)
+                let botSize = botText.size(withAttributes: weeklyAttrs)
+                botText.draw(at: NSPoint(x: pctColWidth - botSize.width, y: 10), withAttributes: weeklyAttrs)
                 cursorX = pctColWidth + iconGap
             }
 
