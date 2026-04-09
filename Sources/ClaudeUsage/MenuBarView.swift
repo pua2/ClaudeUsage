@@ -125,7 +125,7 @@ struct MenuBarView: View {
                 limitRow(
                     label: "Current session",
                     pct: u.sessionPct,
-                    color: color(for: u.sessionPct),
+                    color: .orange,
                     reset: u.sessionResetsAt,
                     expandable: false
                 )
@@ -133,7 +133,7 @@ struct MenuBarView: View {
             limitRow(
                 label: "Weekly",
                 pct: u.weeklyPct,
-                color: color(for: u.weeklyPct),
+                color: .purple,
                 reset: u.weeklyResetsAt,
                 expandable: true
             )
@@ -301,15 +301,6 @@ struct MenuBarView: View {
     // MARK: - Helpers
 
     private var divider: some View { Divider().padding(.vertical, 8) }
-
-    private func color(for pct: Double) -> Color {
-        switch pct {
-        case ..<50: return .green
-        case ..<75: return Color(.sRGB, red: 0.9, green: 0.65, blue: 0.0)
-        case ..<90: return .orange
-        default: return .red
-        }
-    }
 
     private func resetDateLabel(_ date: Date) -> String {
         let f = DateFormatter()
