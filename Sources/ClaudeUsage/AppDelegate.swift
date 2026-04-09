@@ -64,7 +64,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func ringColor(for pct: Double) -> NSColor {
         switch pct {
         case ..<50: return .systemGreen
-        case ..<75: return .systemYellow
+        case ..<75: return NSColor(srgbRed: 0.9, green: 0.65, blue: 0.0, alpha: 1.0)
         case ..<90: return .systemOrange
         default:    return .systemRed
         }

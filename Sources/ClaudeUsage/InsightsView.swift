@@ -100,7 +100,7 @@ struct InsightsView: View {
     private var cacheColor: Color {
         switch stats.cacheHitRate {
         case 80...: return .green
-        case 50...: return .yellow
+        case 50...: return Color(.sRGB, red: 0.9, green: 0.65, blue: 0.0)
         default: return .orange
         }
     }
@@ -182,7 +182,7 @@ struct InsightsView: View {
 
     // MARK: - Colors
 
-    private let toolColors: [Color] = [.blue, .purple, .green, .orange, .pink, .cyan, .yellow, .red]
+    private let toolColors: [Color] = [.blue, .purple, .green, .orange, .pink, .cyan, Color(.sRGB, red: 0.9, green: 0.65, blue: 0.0), .red]
 
     private func toolColor(_ name: String) -> Color {
         let sorted = stats.toolsByName.sorted { $0.value > $1.value }.map(\.key)
