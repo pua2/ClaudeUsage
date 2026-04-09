@@ -13,10 +13,13 @@ struct DayStats {
     var outputTokens: Int = 0
     var inputTokens: Int = 0
     var cacheReadTokens: Int = 0
+    var cacheCreationTokens: Int = 0
     var sessions: Set<String> = []
     var byModel: [String: ModelStats] = [:]
 
     var sessionCount: Int { sessions.count }
+    /// Total tokens sent to Claude: raw input + cache reads + cache creation.
+    var totalInputTokens: Int { inputTokens + cacheReadTokens + cacheCreationTokens }
 }
 
 // MARK: - StatsModel
@@ -340,14 +343,14 @@ final class StatsModel: ObservableObject {
 
             let tokenUsage = message["usage"] as? [String: Any] ?? [:]
             let outTokens = tokenUsage["output_tokens"] as? Int ?? 0
-            guard outTokens > 0 else { continue }
-
             let model = (message["model"] as? String ?? "").lowercased()
 
+            // Every assistant message is a response
             byDay[day, default: DayStats()].messages += 1
             byDay[day]!.outputTokens += outTokens
             byDay[day]!.inputTokens += tokenUsage["input_tokens"] as? Int ?? 0
             byDay[day]!.cacheReadTokens += tokenUsage["cache_read_input_tokens"] as? Int ?? 0
+            byDay[day]!.cacheCreationTokens += tokenUsage["cache_creation_input_tokens"] as? Int ?? 0
 
             let family = extractModelFamily(from: model)
             if !family.isEmpty {
@@ -389,6 +392,7 @@ final class StatsModel: ObservableObject {
             week.outputTokens += s.outputTokens
             week.inputTokens += s.inputTokens
             week.cacheReadTokens += s.cacheReadTokens
+            week.cacheCreationTokens += s.cacheCreationTokens
             week.sessions.formUnion(s.sessions)
             for (model, ms) in s.byModel {
                 week.byModel[model, default: ModelStats()].messages += ms.messages

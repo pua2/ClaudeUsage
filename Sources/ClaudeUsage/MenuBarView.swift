@@ -235,8 +235,9 @@ struct MenuBarView: View {
             statRow("Tool calls", value: fmt(s.toolCalls), icon: "wrench.and.screwdriver")
             statRow("Sessions", value: "\(s.sessionCount)", icon: "terminal")
             statRow("Output tokens", value: fmt(s.outputTokens), icon: "arrow.up.circle")
-            statRow("Input tokens", value: fmt(s.inputTokens), icon: "arrow.down.circle")
+            statRow("Input tokens", value: fmt(s.totalInputTokens), icon: "arrow.down.circle")
             statRow("Cache read", value: fmt(s.cacheReadTokens), icon: "arrow.triangle.2.circlepath")
+            statRow("Cache created", value: fmt(s.cacheCreationTokens), icon: "plus.circle")
         }
     }
 
