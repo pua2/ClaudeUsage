@@ -135,12 +135,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSColor.gray.withAlphaComponent(0.25).setStroke()
         track.stroke()
 
-        // Filled arc (clockwise from 12 o'clock)
+        // Filled arc (clockwise from 12 o'clock in flipped coordinates)
         guard pct > 0 else { return }
-        let startAngle: CGFloat = 90
-        let endAngle = 90 - CGFloat(pct / 100) * 360
+        let startAngle: CGFloat = -90
+        let endAngle = -90 + CGFloat(pct / 100) * 360
         let arc = NSBezierPath()
-        arc.appendArc(withCenter: center, radius: radius, startAngle: startAngle, endAngle: endAngle, clockwise: true)
+        arc.appendArc(withCenter: center, radius: radius, startAngle: startAngle, endAngle: endAngle, clockwise: false)
         arc.lineWidth = lineWidth
         arc.lineCapStyle = .round
         color.setStroke()

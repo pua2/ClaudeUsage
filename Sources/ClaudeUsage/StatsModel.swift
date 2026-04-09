@@ -308,20 +308,32 @@ final class StatsModel: ObservableObject {
             let modDate = (try? url.resourceValues(forKeys: [.contentModificationDateKey]))?
                 .contentModificationDate ?? .distantPast
             guard modDate >= cutoff else { continue }
-            parseFile(url, into: &byDay)
+            parseFile(url, modDate: modDate, into: &byDay)
         }
         return byDay
     }
 
-    private static func parseFile(_ url: URL, into byDay: inout [String: DayStats]) {
-        guard let content = try? String(contentsOf: url, encoding: .utf8) else { return }
+    private static func parseFile(_ url: URL, modDate: Date, into byDay: inout [String: DayStats]) {
+        let filePath = url.path
+        let f = DateFormatter()
+        f.dateFormat = "yyyy-MM-dd"
+
+        guard let content = try? String(contentsOf: url, encoding: .utf8) else {
+            // Unreadable file still counts as a session
+            let day = f.string(from: modDate)
+            byDay[day, default: DayStats()].sessions.insert(filePath)
+            return
+        }
+
+        var activeDays = Set<String>()
+
         for line in content.split(separator: "\n", omittingEmptySubsequences: true) {
             guard let data = line.data(using: .utf8),
                   let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
                   let ts = obj["timestamp"] as? String else { continue }
 
             let day = String(ts.prefix(10))
-            let sessionId = obj["sessionId"] as? String ?? url.path
+            activeDays.insert(day)
 
             guard let message = obj["message"] as? [String: Any],
                   message["role"] as? String == "assistant" else { continue }
@@ -336,7 +348,6 @@ final class StatsModel: ObservableObject {
             byDay[day]!.outputTokens += outTokens
             byDay[day]!.inputTokens += tokenUsage["input_tokens"] as? Int ?? 0
             byDay[day]!.cacheReadTokens += tokenUsage["cache_read_input_tokens"] as? Int ?? 0
-            byDay[day]!.sessions.insert(sessionId)
 
             let family = extractModelFamily(from: model)
             if !family.isEmpty {
@@ -346,6 +357,16 @@ final class StatsModel: ObservableObject {
 
             if let arr = message["content"] as? [[String: Any]] {
                 byDay[day]!.toolCalls += arr.filter { $0["type"] as? String == "tool_use" }.count
+            }
+        }
+
+        // Count this file as one session for every day it had any activity
+        if activeDays.isEmpty {
+            let day = f.string(from: modDate)
+            byDay[day, default: DayStats()].sessions.insert(filePath)
+        } else {
+            for day in activeDays {
+                byDay[day, default: DayStats()].sessions.insert(filePath)
             }
         }
     }
