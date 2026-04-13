@@ -6,6 +6,7 @@ APP_BUNDLE = build/$(APP_NAME).app
 
 build:
 	swift build -c release 2>&1
+	rm -rf "$(APP_BUNDLE)"
 	mkdir -p "$(APP_BUNDLE)/Contents/MacOS"
 	cp "$(BUILD_DIR)/$(APP_NAME)" "$(APP_BUNDLE)/Contents/MacOS/"
 	cp "Resources/Info.plist"       "$(APP_BUNDLE)/Contents/"
