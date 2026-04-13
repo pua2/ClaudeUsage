@@ -85,12 +85,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             var cursorX: CGFloat = 0
 
             if let sPct = sessionPct {
-                // Left column — stacked percentages
+                // Left column — stacked percentages (use label color to match time text)
                 let sessionAttrs: [NSAttributedString.Key: Any] = [
-                    .font: font, .foregroundColor: self.sessionColor
+                    .font: font, .foregroundColor: NSColor.labelColor
                 ]
                 let weeklyAttrs: [NSAttributedString.Key: Any] = [
-                    .font: font, .foregroundColor: self.weeklyColor
+                    .font: font, .foregroundColor: NSColor.labelColor
                 ]
                 let topText = NSString(string: "\(Int(sPct.rounded()))%")
                 let topSize = topText.size(withAttributes: sessionAttrs)
