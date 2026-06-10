@@ -44,7 +44,7 @@ main.swift → AppDelegate (NSApplicationDelegate, .accessory mode)
 
 ## Build
 
-`make install` builds release, signs (Lumaru team if available), packages as `ClaudeUsage.app`, installs to `/Applications`. CI is manual-only (`workflow_dispatch`) per root CLAUDE.md.
+`make install` builds release, signs (Lumaru team if available), packages as `ClaudeUsage.app`, installs to `/Applications`. No CI — local builds are the only gate.
 
 ## Test Suite Structure
 
